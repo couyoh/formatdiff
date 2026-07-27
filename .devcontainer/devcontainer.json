@@ -1,0 +1,16 @@
+{
+    "name": "formatdiff",
+    "image": "mcr.microsoft.com/devcontainers/cpp:trixie",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools-extension-pack"
+            ]
+        }
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/rust:1": {
+            "targets": "x86_64-unknown-linux-gnu"
+        }
+    }
+}

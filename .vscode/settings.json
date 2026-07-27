@@ -1,0 +1,6 @@
+{
+    "C_Cpp.codeAnalysis.clangTidy.enabled": true,
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+    "cmake.sourceDirectory": "/workspaces/formatdiff/src/c/plwrapper",
+    "C_Cpp.clang_format_style": "file"
+}
