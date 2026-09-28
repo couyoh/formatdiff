@@ -1,12 +1,16 @@
 [package]
-name = "formatdiff"
+name = "plwrapper"
 version = "0.1.0"
 edition = "2024"
 build = "build.rs"
 license = "GPL-2.0-only"
 
-[dependencies]
+[dev-dependencies]
 clap = { version = "4.6.2", features = ["derive"] }
 
 [build-dependencies]
 cmake = "0.1.58"
+
+[[example]]
+name = "formatdiff"
+test = true
