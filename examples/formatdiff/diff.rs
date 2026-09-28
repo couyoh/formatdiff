@@ -1,4 +1,4 @@
-use crate::patternlang::PlField;
+use plwrapper::PlField;
 use std::collections::{HashMap, HashSet};
 
 pub enum FieldDiff<'a> {

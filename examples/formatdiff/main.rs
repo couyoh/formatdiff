@@ -1,13 +1,11 @@
 mod diff;
-mod ffi;
-mod patternlang;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::Parser;
 use diff::FieldDiff;
-use patternlang::{PatternLang, PlField, PlResult};
+use plwrapper::{PatternLang, PlField, PlResult};
 
 const EXTENSION_ALIASES: &[(&str, &str)] = &[
     ("jpg", "jpeg"),
@@ -27,7 +25,7 @@ const DIFF_CONTEXT: usize = 3;
     long_version = concat!(
         env!("CARGO_PKG_VERSION"),
         "\n\n",
-        include_str!("../ThirdPartyNotices.txt")
+        include_str!("../../ThirdPartyNotices.txt")
     )
 )]
 struct Cli {
