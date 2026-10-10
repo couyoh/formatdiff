@@ -20,11 +20,13 @@ unsafe extern "C" {
     pub fn pl_create() -> *mut PlWrapper;
     pub fn pl_destroy(rt: *mut PlWrapper);
     pub fn pl_add_include_path(rt: *mut PlWrapper, path: *const c_char);
+    pub fn pl_set_max_eval_depth(rt: *mut PlWrapper, depth: u64);
     pub fn pl_execute_file(
         rt: *mut PlWrapper,
         pattern_path: *const c_char,
         data_path: *const c_char,
     ) -> c_int;
+    pub fn pl_abort(rt: *mut PlWrapper);
     pub fn pl_last_error(rt: *mut PlWrapper) -> *const c_char;
     pub fn pl_field_count(rt: *mut PlWrapper) -> usize;
     pub fn pl_field_at(rt: *mut PlWrapper, index: usize) -> *const PlResult;

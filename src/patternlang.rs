@@ -1,6 +1,7 @@
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::ffi;
 
@@ -20,13 +21,56 @@ pub struct PlResult {
 
 pub struct PatternLang {
     raw: *mut ffi::PlWrapper,
+    handle: Arc<Handle>,
+}
+
+struct Handle(*mut ffi::PlWrapper);
+
+unsafe impl Send for Handle {}
+unsafe impl Sync for Handle {}
+unsafe impl Send for PatternLang {}
+
+impl Drop for Handle {
+    fn drop(&mut self) {
+        unsafe { ffi::pl_destroy(self.0) };
+    }
+}
+
+#[derive(Clone)]
+pub struct Aborter {
+    handle: Arc<Handle>,
+}
+
+impl Aborter {
+    pub fn abort(&self) {
+        unsafe { ffi::pl_abort(self.handle.0) };
+    }
+}
+
+impl Default for PatternLang {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PatternLang {
     pub fn new() -> Self {
         let raw = unsafe { ffi::pl_create() };
         assert!(!raw.is_null(), "failed to create FFI PatternLanguage");
-        Self { raw }
+        Self {
+            raw,
+            handle: Arc::new(Handle(raw)),
+        }
+    }
+
+    pub fn aborter(&self) -> Aborter {
+        Aborter {
+            handle: self.handle.clone(),
+        }
+    }
+
+    pub fn set_max_eval_depth(&mut self, depth: u64) {
+        unsafe { ffi::pl_set_max_eval_depth(self.raw, depth) };
     }
 
     pub fn add_include_path(&mut self, path: &Path) {
@@ -76,12 +120,6 @@ impl PatternLang {
         }
 
         fields
-    }
-}
-
-impl Drop for PatternLang {
-    fn drop(&mut self) {
-        unsafe { ffi::pl_destroy(self.raw) };
     }
 }
 

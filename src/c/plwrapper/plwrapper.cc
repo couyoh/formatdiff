@@ -1,10 +1,16 @@
 #include "plwrapper.h"
 
+#include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <format>
 #include <fstream>
+#include <limits>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <pl/core/evaluator.hpp>
+#include <pl/core/validator.hpp>
 #include <pl/pattern_language.hpp>
 #include <pl/patterns/pattern.hpp>
 #include <pl/patterns/pattern_array_static.hpp>
@@ -54,6 +60,9 @@ std::string joinPath(const std::string &parent, const std::string &child) {
 
 struct pl_plwrapper {
     std::unique_ptr<pl::PatternLanguage> patternLanguage;
+    std::mutex langMutex;
+    std::atomic<bool> abortRequested = false;
+    uint64_t maxEvalDepth = 0;
     std::vector<uint8_t> fileData;
     std::vector<std::string> includePaths;
     std::string lastError;
@@ -104,8 +113,8 @@ void pl_add_include_path(pl_plwrapper *rt, const char *path) {
     rt->includePaths.emplace_back(path);
 }
 
-int pl_execute_file(pl_plwrapper *rt, const char *pattern_path,
-                    const char *data_path) {
+static int executeFile(pl_plwrapper *rt, const char *pattern_path,
+                       const char *data_path) {
     if (rt == nullptr || pattern_path == nullptr || data_path == nullptr) {
         return -1;
     }
@@ -127,8 +136,42 @@ int pl_execute_file(pl_plwrapper *rt, const char *pattern_path,
         return -1;
     }
 
-    rt->patternLanguage = std::make_unique<pl::PatternLanguage>();
+    if (rt->abortRequested) {
+        rt->lastError = "aborted";
+        return -1;
+    }
+
+    {
+        std::lock_guard lock(rt->langMutex);
+        rt->patternLanguage = std::make_unique<pl::PatternLanguage>();
+    }
     auto &lang = *rt->patternLanguage;
+
+    if (rt->maxEvalDepth != 0) {
+        lang.addPragma("eval_depth", [max = rt->maxEvalDepth](
+                                         pl::PatternLanguage &runtime,
+                                         const std::string &value) {
+            size_t index = 0;
+            uint64_t limit = 0;
+            try {
+                limit = std::stoull(value, &index, 0);
+            } catch (const std::exception &) {
+                return false;
+            }
+            if (index != value.size()) {
+                return false;
+            }
+            if (limit == 0) {
+                limit = std::numeric_limits<uint64_t>::max();
+            }
+            limit = std::min(limit, max);
+            runtime.getInternals().evaluator->setEvaluationDepth(limit);
+            runtime.getInternals().validator->setRecursionDepth(
+                static_cast<uint32_t>(std::min<uint64_t>(
+                    limit, std::numeric_limits<uint32_t>::max())));
+            return true;
+        });
+    }
 
     if (!rt->includePaths.empty()) {
         std::vector<std::fs::path> paths;
@@ -179,6 +222,37 @@ int pl_execute_file(pl_plwrapper *rt, const char *pattern_path,
     }
 
     return result;
+}
+
+int pl_execute_file(pl_plwrapper *rt, const char *pattern_path,
+                    const char *data_path) {
+    try {
+        return executeFile(rt, pattern_path, data_path);
+    } catch (const std::exception &e) {
+        rt->lastError = std::string("internal error: ") + e.what();
+    } catch (...) {
+        rt->lastError = "internal error: unknown exception";
+    }
+    rt->records.clear();
+    return -1;
+}
+
+void pl_set_max_eval_depth(pl_plwrapper *rt, uint64_t depth) {
+    if (rt == nullptr) {
+        return;
+    }
+    rt->maxEvalDepth = depth;
+}
+
+void pl_abort(pl_plwrapper *rt) {
+    if (rt == nullptr) {
+        return;
+    }
+    rt->abortRequested = true;
+    std::lock_guard lock(rt->langMutex);
+    if (rt->patternLanguage) {
+        rt->patternLanguage->abort();
+    }
 }
 
 const char *pl_last_error(pl_plwrapper *rt) {

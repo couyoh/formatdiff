@@ -1,4 +1,4 @@
 mod ffi;
 mod patternlang;
 
-pub use patternlang::{PatternLang, PlField, PlResult};
+pub use patternlang::{Aborter, PatternLang, PlField, PlResult};
